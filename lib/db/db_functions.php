@@ -84,7 +84,7 @@ function get_connection_settings()
     return array(
         'host' => 'localhost',
         'login' => 'root',
-        'pass' => 'root',
+        'password' => 'root',
         'db_name' => 'catalog',
         'port' => 3306,
     );
