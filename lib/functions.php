@@ -1,18 +1,12 @@
 <?php
 require_once __DIR__ . '/db/db_functions.php';
 require_once __DIR__ . '/view/catalog.php';
-function show()
+function show_list()
 {
     $data = getProductsData();
-    $header = 'Список товаров';
-    $content= $data['products'];
-    $pagination = $data['pagination'];
-    prepare_response($response);
-    $html_header = get_html_header($header);
-    $html_content = get_html_content($content);
-    $html_response = array('header' => $html_header, 'content' => $html_content);
-
-    _show($html_response, $pagination);
+    $response = getViewContent('Список товаров', $data['products'], $data['pagination']);
+    $view = build_view($response);
+    _show($view);
 }
 
 function prepare_response(&$response)
@@ -25,10 +19,8 @@ function prepare_response(&$response)
     }
 }
 
-function _show($response, $pagination)
+function _show($response)
 {
-    $response = getViewContent($response['header'], $response['content'], $pagination);
-
     print_r($response);
 }
 
@@ -65,4 +57,98 @@ function generator($data)
     }
 
     closeConnection($c);
+}
+
+
+function show_edit()
+{
+    $id = (empty($_GET['id'])) ? '' : $_GET['id'];
+    $product = get_product($id);
+    if (!empty($product)) {
+        $content = get_edit_form($product);
+
+    } else {
+        $content = 'All bad';
+    }
+
+    $response = build_view($content);
+    _show($response);
+}
+
+function show_add()
+{
+    $content = get_edit_form();
+    $response = build_view($content);
+    _show($response);
+}
+
+function save_product()
+{
+    $data = array(
+        'product' => array(
+            'name' => '',
+            'description' => '',
+            'price' => 0,
+            'url' => '')
+    );
+    $errors = array();
+    $data['success'] = false;
+
+    if (empty($_POST['action'])) {
+        $errors['action'] = 'Внутренняя ошибка';
+    }
+    if ($_POST['action'] == 'edit') {
+        if (empty($_POST['id'])) {
+            $errors['action'] = 'Внутренняя ошибка';
+        } else {
+            $data['product']['id'] = $_POST['id'];
+        }
+    }
+
+    if (empty($_POST['name'])) {
+        $errors['name'] = 'Нужно указать название товара';
+    } else {
+        $data['product']['name'] = $_POST['name'];
+    }
+
+
+    if (empty($_POST['price'])) {
+        $errors['price'] = 'Нужно указать цену';
+    } else {
+
+        $data['product']['price'] = trim($_POST['price']);
+        preg_match('/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/', $data['product']['price'], $match);
+        if (empty($match)) {
+            $errors['price'] = 'Цена в не правильном формате, пример: 1232.20';
+        }
+    }
+    if (!empty($_POST['description'])) {
+        $data['product']['description'] = $_POST['description'];
+    }
+    if (!empty($_POST['url'])) {
+        $data['product']['url'] = $_POST['url'];
+    }
+
+
+    if (!empty($errors)) {
+        $data['errors'] = $errors;
+    } else {
+        switch ($_POST['action']) {
+            case 'edit':
+                if (edit_product($data['product'])) {
+                    $data['success'] = true;
+                }
+                break;
+            case 'add':
+                if (add_product($data['product'])) {
+                    $data['success'] = true;
+                }
+                break;
+        }
+    }
+
+    // return all our data to an AJAX call
+    echo json_encode($data);
+
+
 }

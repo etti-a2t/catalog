@@ -21,6 +21,8 @@ function getProductsData()
     $data['products'] = getProducts($c, $page, $per_page);
     $data['pagination']['total'] = ceil(getCountProduct($c) / $per_page);
     $data['pagination']['page'] = $page + 1;
+
+    prepare_response($data);
     return $data;
 }
 
@@ -88,4 +90,77 @@ function get_connection_settings()
         'db_name' => 'catalog',
         'port' => 3306,
     );
+}
+
+function query($sql)
+{
+    $c = getConnection();
+    $res = mysqli_query($c, $sql);
+    $data = array();
+    while ($row = mysqli_fetch_row($res)) {
+
+        $data[] = $row;
+    }
+    return $data;
+}
+
+function add_product($product_data)
+{
+    $name = $product_data['name'];
+    $description = $product_data['description'];
+    $price = $product_data['price'];
+    $url = $product_data['url'];
+
+    $c = getConnection();
+    $r = false;
+    $sql = 'insert into product (name,  description, price, url) value("' . $name . '", "' . $description . '", ' . $price . ', "' . $url . '" )';
+    return mysqli_query($c, $sql);
+}
+
+function edit_product($product_data)
+{
+    $name = $product_data['name'];
+    $description = $product_data['description'];
+    $price = $product_data['price'];
+    $url = $product_data['url'];
+    $id = $product_data['id'];
+
+    $c = getConnection();
+    $sql = 'update product set name="' . $name . '",  description="' . $description . '", price=' . $price . ', url="' . $url . '" where id=' . $id;
+    $res = mysqli_query($c, $sql);
+    return $res;
+}
+
+function remove_product()
+{
+    $c = getConnection();
+
+    if (isset($_GET['id'])) {
+        $id = $_GET['id'];
+    } else {
+        return false;
+    }
+    $sql = 'delete from product where id=' . $id;
+    $res = mysqli_query($c, $sql);
+    if ($res) {
+        return true;
+    }
+    return false;
+}
+
+function get_product()
+{
+    if (isset($_GET['id'])) {
+        $id = $_GET['id'];
+    } else {
+        return false;
+    }
+    $c = getConnection();
+    $sql = 'select * from product where id=' . $id . ' limit 1';
+    $res = mysqli_query($c, $sql);
+    $row = mysqli_fetch_row($res);
+    if (empty($row)) {
+        return false;
+    }
+    return $row;
 }
