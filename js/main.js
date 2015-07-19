@@ -23,8 +23,11 @@ $(document).ready(function () {
                     errors = data.errors;
                     $.each( errors, function( key, value ) {
                         $('div[id='+key+']').addClass('has-error has-feedback')
+                        alert(value);
                     });
 
+                }else{
+                    alert('Сохранено!');
                 }
             });
 

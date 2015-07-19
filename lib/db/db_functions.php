@@ -1,5 +1,6 @@
 <?
-function getConnection()
+define('PER_PAGE', 10);
+function get_connection()
 {
     $settings = get_connection_settings();
     $con = mysqli_connect($settings['host'], $settings['login'], $settings['password'], $settings['db_name'], $settings['port']);
@@ -12,14 +13,12 @@ function getConnection()
     return $con;
 }
 
-function getProductsData()
+function get_page_data()
 {
-    $c = getConnection();
 
     if (isset($_GET['page'])) $page = ($_GET['page'] - 1); else $page = 0;
-    $per_page = 10;
-    $data['products'] = getProducts($c, $page, $per_page);
-    $data['pagination']['total'] = ceil(getCountProduct($c) / $per_page);
+    $data['products'] = get_products($page, PER_PAGE);
+    $data['pagination']['total'] = ceil(get_count_product() / PER_PAGE);
     $data['pagination']['page'] = $page + 1;
 
     prepare_response($data);
@@ -31,50 +30,57 @@ function closeConnection($c)
     mysqli_close($c);
 }
 
-function getProducts($c, $page, $per_page)
+function get_products($page, $per_page, $short = false)
 {
-    if (isset($_GET['sort'])) {
-        switch ($_GET['sort']) {
-            case 'id_desc':
-                $sort = 'ORDER BY id desc';
-                break;
-            case 'id_asc':
-                $sort = 'ORDER BY id asc';
-                break;
-            case 'price_desc':
-                $sort = 'ORDER BY price desc';
-                break;
-            case 'price_asc':
-                $sort = 'ORDER BY price asc';
-                break;
-            default:
-                $sort = '';
-        }
-
-    } else {
-        $sort = '';
-    }
     $start = abs($page * $per_page);
 
-    $q = "SELECT * FROM `product` " . $sort . " LIMIT $start,$per_page";
-    $res = mysqli_query($c, $q);
-    $data = array();
-    while ($row = mysqli_fetch_row($res)) {
+    $fields = ($short) ? 'product.id' : '*';
 
-        $data[] = $row;
+    if (isset($_GET['sort'])) {
+        $sort_query = $_GET['sort'];
+    } elseif (!empty($_POST['sort'])) {
+        $sort_query = $_POST['sort'];
+    } else {
+        $sort_query = 'id_asc';
     }
-    return $data;
+
+    $cache_key = build_cache_key($page, $sort_query);
+    $result = get_cache($cache_key);
+    if (!$result) {
+        $sort_data = get_sort($sort_query);
+        $sort = $sort_data['sort'];
+        $sort_field = $sort_data['sort_field'];
+
+        if ($sort_field == 'id') {
+            $q = 'select ' . $fields . ' from product JOIN (SELECT ' . $sort_field . ' FROM product ' . $sort . ' LIMIT ' . $start . ',' . $per_page . ') as b ON b.id = product.id';
+        } elseif ($sort_field == 'price') {
+            $q = 'select ' . $fields . ' from product JOIN (SELECT id, price FROM product ' . $sort . ' LIMIT ' . $start . ',' . $per_page . ') as b ON b.id = product.id';
+        }
+        $res = query($q);
+    } else {
+        $q = 'select ' . $fields . ' from product where id in(' . $result . ');';
+        $res = query($q);
+    }
+
+    return $res;
 }
 
-function getCountProduct($c)
+function get_count_product()
 {
-    $q = "SELECT count(id) FROM `product`";
-    $res = mysqli_query($c, $q);
-    $row = mysqli_fetch_row($res);
-    if (empty($row[0])) {
-        $row[0] = 0;
+    $c = get_connection();
+    $result = get_cache('total_count');
+    if (!$result) {
+
+        $q = 'SELECT product_stat.value FROM product_stat where name= "product_count"';
+        $res = mysqli_query($c, $q);
+        $row = mysqli_fetch_row($res);
+        if (empty($row[0])) {
+            $row[0] = 0;
+        }
+        set_cache('total_count', $row[0]);
+        return $row[0];
     }
-    return $row[0];
+    return $result;
 }
 
 /**
@@ -94,7 +100,7 @@ function get_connection_settings()
 
 function query($sql)
 {
-    $c = getConnection();
+    $c = get_connection();
     $res = mysqli_query($c, $sql);
     $data = array();
     while ($row = mysqli_fetch_row($res)) {
@@ -111,7 +117,7 @@ function add_product($product_data)
     $price = $product_data['price'];
     $url = $product_data['url'];
 
-    $c = getConnection();
+    $c = get_connection();
     $r = false;
     $sql = 'insert into product (name,  description, price, url) value("' . $name . '", "' . $description . '", ' . $price . ', "' . $url . '" )';
     return mysqli_query($c, $sql);
@@ -125,7 +131,7 @@ function edit_product($product_data)
     $url = $product_data['url'];
     $id = $product_data['id'];
 
-    $c = getConnection();
+    $c = get_connection();
     $sql = 'update product set name="' . $name . '",  description="' . $description . '", price=' . $price . ', url="' . $url . '" where id=' . $id;
     $res = mysqli_query($c, $sql);
     return $res;
@@ -133,7 +139,7 @@ function edit_product($product_data)
 
 function remove_product()
 {
-    $c = getConnection();
+    $c = get_connection();
 
     if (isset($_GET['id'])) {
         $id = $_GET['id'];
@@ -143,6 +149,7 @@ function remove_product()
     $sql = 'delete from product where id=' . $id;
     $res = mysqli_query($c, $sql);
     if ($res) {
+        clear_cache();
         return true;
     }
     return false;
@@ -155,7 +162,7 @@ function get_product()
     } else {
         return false;
     }
-    $c = getConnection();
+    $c = get_connection();
     $sql = 'select * from product where id=' . $id . ' limit 1';
     $res = mysqli_query($c, $sql);
     $row = mysqli_fetch_row($res);
@@ -163,4 +170,29 @@ function get_product()
         return false;
     }
     return $row;
+}
+
+function get_sort($query)
+{
+    $sort = '';
+    $sort_field = '';
+    switch ($query) {
+        case 'id_desc':
+            $sort = 'ORDER BY id desc';
+            $sort_field = 'id';
+            break;
+        case 'id_asc':
+            $sort = 'ORDER BY id asc';
+            $sort_field = 'id';
+            break;
+        case 'price_desc':
+            $sort = 'ORDER BY price desc';
+            $sort_field = 'price';
+            break;
+        case 'price_asc':
+            $sort = 'ORDER BY price asc';
+            $sort_field = 'price';
+            break;
+    }
+    return array('sort' => $sort, 'sort_field' => $sort_field);
 }

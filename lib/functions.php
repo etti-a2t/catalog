@@ -1,10 +1,15 @@
 <?php
 require_once __DIR__ . '/db/db_functions.php';
+require_once __DIR__ . '/cache_functions.php';
 require_once __DIR__ . '/view/catalog.php';
 function show_list()
 {
-    $data = getProductsData();
-    $response = getViewContent('Список товаров', $data['products'], $data['pagination']);
+    $data = get_page_data();
+    $metadata = array(
+        'page' => (isset($_GET['page']) ? $_GET['page'] : 1),
+        'sort' => (isset($_GET['sort']) ? $_GET['sort'] : ''),
+    );
+    $response = getViewContent('Список товаров', $data['products'], $data['pagination'], $metadata);
     $view = build_view($response);
     _show($view);
 }
@@ -35,28 +40,6 @@ function array_to_string($array)
 
     }
     return $string;
-}
-
-function generator($data)
-{
-    $c = getConnection();
-
-    $params = '';
-    foreach ($data as $el) {
-        $params .= '("' . addslashes($el['name']) . '", ' . '"' . addslashes($el['description']) . '", ' . $el['price'] . '), ';
-    }
-    $params = substr($params, 0, -2);
-
-
-    $query = "INSERT INTO product (name, description, price) VALUES " . $params;
-
-    if (mysqli_query($c, $query)) {
-        echo "New record created successfully";
-    } else {
-        echo "Error: " . $query . "<br>" . mysqli_error($c);
-    }
-
-    closeConnection($c);
 }
 
 
@@ -145,6 +128,7 @@ function save_product()
                 }
                 break;
         }
+        clear_cache();
     }
 
     // return all our data to an AJAX call

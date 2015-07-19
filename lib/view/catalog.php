@@ -1,9 +1,9 @@
 <?
-function getViewContent($header, $content, $pagination)
+function getViewContent($header, $content, $pagination, $metadata)
 {
 
     $html_header = get_html_header($header);
-    $html_content = get_html_content($content, $pagination);
+    $html_content = get_html_content($content, $pagination, $metadata);
     return '
             <div>
                ' . $html_header . '
@@ -12,20 +12,20 @@ function getViewContent($header, $content, $pagination)
         ';
 }
 
-function getViewPagination($pagination)
+function get_view_pagination($pagination)
 {
     $page = $pagination['page'];
     $total = $pagination['total'];
     $str = '<ul class="right pagination">
-    <li><a href="index.php?' . getUrlWithParam(array('page' => 1)) . '" class="first">First</a></li>';
+    <li><a href="index.php?' . get_url_with_param(array('page' => 1)) . '" class="first">First</a></li>';
     $maxPage = ($m = $page + 2) > $total ? $total : $m;
     for ($i = $page - 2; $i <= $maxPage; $i++) {
         if ($i > 0) {
-            $str .= '<li ' . (($i == $page) ? 'class="active"' : '') . '><a href="index.php?' . getUrlWithParam(array('page' => $i)) . '">' . $i . '</a></li>';
+            $str .= '<li ' . (($i == $page) ? 'class="active"' : '') . '><a href="index.php?' . get_url_with_param(array('page' => $i)) . '">' . $i . '</a></li>';
         }
     }
 
-    $str .= '<li><a href="index.php?' . getUrlWithParam(array('page' => $total)) . '" class="last">Last</a></li></ul>';
+    $str .= '<li><a href="index.php?' . get_url_with_param(array('page' => $total)) . '" class="last">Last</a></li></ul>';
     return $str;
 }
 
@@ -36,14 +36,14 @@ function getViewPagination($pagination)
  */
 function get_html_header($name)
 {
-    return "<h1>$name</h1>";
+    return '<script src="js/cache_manager.js"></script><h1>' . $name . '</h1>';
 }
 
-function get_html_content($content, $pagination)
+function get_html_content($content, $pagination, $metadata)
 {
 
 
-    $html = getViewSort();
+    $html = get_view_sort();
     $html .= ' <a href="add.php" id="add_product" class="btn btn-primary"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Добавить товар</a><br><br><table class="table table-hover">';
     $html .= '<thead><tr>';
     $html .= '<th>id</th>';
@@ -54,11 +54,11 @@ function get_html_content($content, $pagination)
     $html .= '<th></th>';
     $html .= '<th></th>';
     $html .= '</tr></thead><tbody>';
-    foreach ($content as $id=>$row) {
+    foreach ($content as $id => $row) {
 
-        $html .= '<tr id="'.$row[0].'">';
+        $html .= '<tr id="' . $row[0] . '">';
         $html .= '<td>';
-        $html .= ($pagination['page']-1)*10+$id+1;
+        $html .= ($pagination['page'] - 1) * 10 + $id + 1;
         $html .= '</td>';
         $html .= '<td>';
         $html .= $row[1];
@@ -76,17 +76,27 @@ function get_html_content($content, $pagination)
         $html .= '<a href="edit.php?id=' . $row[0] . '"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></a>';
         $html .= '</td>';
         $html .= '<td>';
-        $html .= '<a class="link" href="#" data-artid="'.$row[0].'"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a>';
+        $html .= '<a class="link" href="#" data-artid="' . $row[0] . '"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a>';
         $html .= '</td>';
         $html .= '</tr>';
     }
     $html .= '</tbody>';
     $html .= '</table>';
-    $html .=  getViewPagination($pagination);;
+    $html .= '<div><form action="save.php" class="form-horizontal" id="form" role="form">
+
+  <div class="form-group"><div class="col-sm-offset-1"><a href="index.php"  class="btn btn-primary"><span class="glyphicon glyphicon-home" aria-hidden="true"></span> Список товаров</a><br><br></div></div>
+    <input type="hidden" name="page" hidden="true" value="' . $metadata['page'] . '">
+    <input type="hidden" name="sort" hidden="true" value="' . $metadata['sort'] . '">
+    <input type="hidden" name="total" hidden="true" value="' . $pagination['total'] . '">
+
+
+
+</form></div>';
+    $html .= get_view_pagination($pagination);;
     return $html;
 }
 
-function getViewSort()
+function get_view_sort()
 {
 
     $sort_html = '    <div class="right"><label for="sort">Сортировка:</label>
@@ -95,23 +105,23 @@ function getViewSort()
     <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown">
     id <span class="caret"></span></button>
     <ul class="dropdown-menu" role="menu">
-      <li><a href="index.php?' . getUrlWithParam(array('sort' => 'id_asc')) . '">По возрастанию</a></li>
-      <li><a href="index.php?' . getUrlWithParam(array('sort' => 'id_desc')) . '">По убыванию</a></li>
+      <li><a href="index.php?' . get_url_with_param(array('sort' => 'id_asc')) . '">По возрастанию</a></li>
+      <li><a href="index.php?' . get_url_with_param(array('sort' => 'id_desc')) . '">По убыванию</a></li>
     </ul>
   </div>
   <div class="btn-group">
     <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown">
     Цена<span class="caret"></span></button>
     <ul class="dropdown-menu" role="menu">
-      <li><a href="index.php?' . getUrlWithParam(array('sort' => 'price_asc')) . '">По возрастанию</a></li>
-      <li><a href="index.php?' . getUrlWithParam(array('sort' => 'price_desc')) . '">По убыванию</a></li>
+      <li><a href="index.php?' . get_url_with_param(array('sort' => 'price_asc')) . '">По возрастанию</a></li>
+      <li><a href="index.php?' . get_url_with_param(array('sort' => 'price_desc')) . '">По убыванию</a></li>
     </ul>
   </div>
 </div></div>';
     return $sort_html;
 }
 
-function getUrlWithParam($param)
+function get_url_with_param($param)
 {
     return http_build_query(array_merge($_GET, $param));
 }
@@ -123,8 +133,8 @@ function get_edit_form($data = array())
     <div><form action="save.php" class="form-horizontal" id="form" role="form">
 
   <div class="form-group"><div class="col-sm-offset-1"><a href="index.php"  class="btn btn-primary"><span class="glyphicon glyphicon-home" aria-hidden="true"></span> Список товаров</a><br><br></div></div>
-    <input type="hidden" name="action" hidden="true" value="' . ((empty($data)) ? 'add'  : 'edit') . '">
-    <input type="hidden" name="id" hidden="true" value="' . ((empty($data[0])) ? ''  : $data[0]) . '">
+    <input type="hidden" name="action" hidden="true" value="' . ((empty($data)) ? 'add' : 'edit') . '">
+    <input type="hidden" name="id" hidden="true" value="' . ((empty($data[0])) ? '' : $data[0]) . '">
   <div class="form-group" id="name">
     <label class="control-label col-sm-2" for="name">Название:</label>
     <div class="col-sm-10">
